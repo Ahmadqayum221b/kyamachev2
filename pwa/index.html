@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0f0f0f">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Kymacache">
+  <title>Kymacache</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+
+<div id="app" class="sidebar-layout">
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <span class="logo-mark">K</span>
+        <span class="logo-name">ymacache</span>
+      </div>
+    </div>
+
+    <button class="compose-btn" id="compose-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+      <span>Capture</span>
+    </button>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <button class="nav-item active" data-filter="active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          <span>All Entries</span>
+        </button>
+        <button class="nav-item" data-filter="starred">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <span>Starred</span>
+        </button>
+        <button class="nav-item" id="trash-nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          <span>Trash</span>
+        </button>
+      </div>
+
+      <div class="nav-section">
+        <h3>Categories</h3>
+        <button class="nav-item" data-type="image">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <span>Images</span>
+        </button>
+        <button class="nav-item" data-type="url">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          <span>Links</span>
+        </button>
+        <button class="nav-item" data-type="file">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span>Documents</span>
+        </button>
+      </div>
+
+      <div class="nav-section" id="labels-section">
+        <h3>Labels</h3>
+        <div id="label-nav-list"></div>
+      </div>
+
+      <div class="nav-section" id="collections-section">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding-right:12px;">
+          <h3>Collections</h3>
+          <button class="icon-btn-sm" id="new-collection-btn" title="New Collection">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+        <div id="collections-nav-list"></div>
+      </div>
+
+      <div class="nav-section">
+        <h3>Family</h3>
+        <button class="nav-item" id="family-admin-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><circle cx="19" cy="11" r="4"/></svg>
+          <span>Manage Family</span>
+        </button>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- ── Main Content ── -->
+  <main class="main-content">
+    <header class="main-header">
+      <div class="search-container">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="search" id="search-input" placeholder="Search entries, labels, people…" autocomplete="off">
+        <div id="search-results" class="search-results hidden"></div>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" id="bulk-select-btn" title="Select Multiple">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        </button>
+        <button class="icon-btn" id="view-toggle" title="Switch View">
+          <!-- icon set by JS -->
+        </button>
+        <div class="user-profile" id="user-profile">
+          <div class="avatar" id="user-avatar">U</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Selection Bar (Sticky at top when selecting) -->
+    <div id="selection-bar" class="selection-bar hidden">
+      <div class="selection-info">
+        <button class="icon-btn" id="cancel-selection" title="Cancel">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        <span id="selection-count">0 selected</span>
+      </div>
+      <div class="selection-actions">
+        <button class="icon-btn" id="bulk-pin-btn" title="Pin selected">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14"/><path d="M16.5 9.4L7.5 4.21"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/><circle cx="18.5" cy="15.5" r="2.5"/><path d="M18.5 18v3"/></svg>
+        </button>
+        <button class="icon-btn" id="bulk-move-btn" title="Move to Collection">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        </button>
+        <button class="icon-btn delete-btn" id="bulk-delete-btn" title="Delete selected">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="feed-container" id="feed-view">
+      <div class="feed-header">
+        <h2 id="feed-title">All Entries</h2>
+        <div class="feed-controls">
+          <!-- filters etc -->
+        </div>
+      </div>
+
+      <div id="entries-list" class="entries-list list-view">
+        <div class="loading-state">Loading…</div>
+      </div>
+      <button class="load-more hidden" id="load-more">Load more</button>
+    </div>
+
+    <!-- ── Family Admin View ── -->
+    <div class="feed-container hidden" id="family-admin-view">
+      <div class="feed-header">
+        <h2>Family Management</h2>
+      </div>
+      
+      <div class="admin-section">
+        <h3>Members</h3>
+        <div class="member-list" id="member-list">
+          <!-- Members rendered by JS -->
+        </div>
+        <button class="primary-btn" id="invite-member-btn" style="margin-top: 16px;">Invite Member</button>
+      </div>
+
+      <div class="admin-section" style="margin-top: 40px;">
+        <h3>Family Settings</h3>
+        <div class="settings-form">
+          <label>Family Name</label>
+          <input type="text" id="family-name-input" placeholder="e.g. The Keenan Family">
+          <button class="secondary-btn" id="save-family-settings" style="margin-top: 12px;">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ── Capture Panel (Overlay/Modal) ── -->
+  <div id="capture-overlay" class="capture-overlay hidden">
+    <section class="capture-panel">
+      <div class="capture-header">
+        <h3>New Capture</h3>
+        <button class="close-btn" id="capture-close">&times;</button>
+      </div>
+      <div class="capture-tabs">
+        <button class="tab active" data-tab="text">Text</button>
+        <button class="tab" data-tab="url">URL</button>
+        <button class="tab" data-tab="file">File</button>
+      </div>
+
+      <!-- Text tab -->
+      <div class="tab-content active" data-content="text">
+        <textarea id="text-input" placeholder="Capture a thought, quote, idea…" rows="6"></textarea>
+      </div>
+
+      <!-- URL tab -->
+      <div class="tab-content" data-content="url">
+        <input type="url" id="url-input" placeholder="https://…">
+        <textarea id="url-note" placeholder="Optional note about this link…" rows="3"></textarea>
+      </div>
+
+      <!-- File tab -->
+      <div class="tab-content" data-content="file">
+        <label class="file-drop" id="file-drop">
+          <input type="file" id="file-input" accept="image/*,application/pdf,text/*" multiple hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <span>Drop or tap to attach</span>
+          <span class="file-name" id="file-name"></span>
+        </label>
+        <textarea id="file-note" placeholder="Optional note about this file…" rows="3"></textarea>
+      </div>
+
+      <div class="capture-footer">
+        <span class="status-msg" id="capture-status"></span>
+        <button class="capture-btn" id="capture-btn">
+          <span>Save</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <!-- ── Auth Overlay ── -->
+  <div id="auth-overlay" class="auth-overlay hidden">
+    <div class="auth-card">
+      <div class="logo">
+        <span class="logo-mark">K</span>
+        <span class="logo-name">ymacache</span>
+      </div>
+      <h2 id="auth-title">Welcome back</h2>
+      <form id="auth-form">
+        <input type="email" id="auth-email" placeholder="Email" required>
+        <input type="password" id="auth-password" placeholder="Password" required>
+        <button type="submit" class="primary-btn" id="auth-submit">Sign In</button>
+      </form>
+      <div class="auth-alt">
+        <button class="secondary-btn" id="google-auth-btn">
+          <svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+          <span>Sign in with Google</span>
+        </button>
+      </div>
+      <p class="auth-toggle">Don't have an account? <a href="#" id="auth-toggle-link">Sign Up</a></p>
+    </div>
+  </div>
+
+  </div>
+
+  <!-- ── Invite Modal ── -->
+  <div id="invite-overlay" class="capture-overlay hidden">
+    <div class="capture-panel">
+      <div class="capture-header">
+        <h3>Invite Family Member</h3>
+        <button class="close-btn" id="invite-close">&times;</button>
+      </div>
+      <div class="tab-content active">
+        <input type="email" id="invite-email" placeholder="Email address" style="margin-bottom: 12px;">
+        <select id="invite-role" style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px;">
+          <option value="member">Member (Adult)</option>
+          <option value="member_limited">Member (Limited/Kid)</option>
+          <option value="admin">Admin</option>
+          <option value="viewer">Viewer</option>
+        </select>
+      </div>
+      <div class="capture-footer">
+        <button class="primary-btn" id="send-invite-btn">Send Invite</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Toast notifications ── -->
+  <div id="toast-container" aria-live="polite"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/app-v2.js" type="module"></script>
+</body>
+</html>

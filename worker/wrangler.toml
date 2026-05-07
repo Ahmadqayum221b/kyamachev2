@@ -1,0 +1,41 @@
+name = "kymacache-worker"
+main = "src/index.js"
+compatibility_date = "2024-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+# ─── KV Namespace ─────────────────────────────────────────────────────────────
+# Create with: wrangler kv namespace create KYMACACHE_KV
+# Then paste the id below
+[[kv_namespaces]]
+binding = "KYMACACHE_KV"
+id = "1b6d9b99a13549398fd57e69d422fdab"
+
+# ─── Non-secret vars ──────────────────────────────────────────────────────────
+[vars]
+ENVIRONMENT    = "production"
+KV_TTL         = "3600"       # seconds entries stay in KV cache
+MAX_FILE_SIZE  = "10485760"   # 10 MB
+
+# FIX: WORKER_SELF_URL and FRONTEND_URL moved here (non-secret) — OK.
+# These are not sensitive values, just URLs.
+WORKER_SELF_URL = "https://kymacache-worker.yourname.workers.dev"
+FRONTEND_URL    = "https://kymacache.pages.dev"
+
+# ─── Secrets (set via CLI, never commit values) ────────────────────────────────
+# Run these once after deploying:
+#
+#   wrangler secret put SUPABASE_URL          # e.g. https://xxx.supabase.co
+#   wrangler secret put SUPABASE_SERVICE_KEY  # service_role key (never expose client-side)
+#   wrangler secret put SUPABASE_JWT_SECRET   # from Supabase: Settings → API → JWT Secret
+#   wrangler secret put B2_KEY_ID
+#   wrangler secret put B2_APP_KEY
+#   wrangler secret put B2_BUCKET_ID
+#   wrangler secret put B2_BUCKET_NAME
+#   wrangler secret put B2_PUBLIC_URL         # e.g. https://f005.backblazeb2.com
+#   wrangler secret put KIMI_API_KEY
+#   wrangler secret put PROCESS_SECRET        # FIX: random string, protects /process endpoint
+#                                             # Generate with: openssl rand -hex 32
+
+# ─── Cron trigger ─────────────────────────────────────────────────────────────
+[triggers]
+crons = ["*/15 * * * *"]  # Re-tag pending/failed entries every 15 minutes
