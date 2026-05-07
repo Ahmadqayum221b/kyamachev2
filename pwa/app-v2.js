@@ -27,14 +27,13 @@
 // What must NEVER be in client code: the service_role key.
 
 const _cfg        = window.KYMACACHE_CONFIG ?? {};
-const API_BASE    = _cfg.apiBase
-  ?? (location.hostname === 'localhost' || location.hostname === '127.0.0.1'
-        ? 'http://localhost:8787'
-        : (() => { throw new Error('[kymacache] window.KYMACACHE_CONFIG.apiBase is not set'); })());
-const SUPABASE_URL = _cfg.supabaseUrl
-  ?? (() => { throw new Error('[kymacache] window.KYMACACHE_CONFIG.supabaseUrl is not set'); })();
-const SUPABASE_KEY = _cfg.supabaseKey
-  ?? (() => { throw new Error('[kymacache] window.KYMACACHE_CONFIG.supabaseKey is not set'); })();
+const API_BASE    = _cfg.apiBase    ?? (
+  (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+    ? 'http://localhost:8787'
+    : null   // detected at runtime — show config error if null
+);
+const SUPABASE_URL = _cfg.supabaseUrl ?? null;
+const SUPABASE_KEY = _cfg.supabaseKey ?? null;
 
 let supabase = null;
 
@@ -58,7 +57,28 @@ const $$ = sel => document.querySelectorAll(sel);
 // ── Init ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('[init] App loading...');
-  
+
+  // Guard: show helpful config error if credentials not injected yet
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    document.getElementById('app').innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:center;height:100vh;padding:24px;background:var(--bg);">
+        <div style="max-width:500px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px;text-align:center;">
+          <div style="font-size:40px;margin-bottom:16px;">⚙️</div>
+          <h2 style="margin-bottom:12px;color:var(--text);">Config Required</h2>
+          <p style="color:var(--muted);margin-bottom:24px;line-height:1.6;">Add your credentials to <code style="background:var(--bg);padding:2px 6px;border-radius:4px;">index.html</code> before the app script tag:</p>
+          <pre style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:left;font-size:12px;overflow-x:auto;color:var(--text);">&lt;script&gt;
+window.KYMACACHE_CONFIG = {
+  apiBase:     "https://your-worker.workers.dev",
+  supabaseUrl: "https://xxx.supabase.co",
+  supabaseKey: "your-anon-key"
+};
+&lt;/script&gt;</pre>
+          <p style="color:var(--muted);font-size:13px;margin-top:16px;">See <strong>DEPLOY.md</strong> for full setup instructions.</p>
+        </div>
+      </div>`;
+    return;
+  }
+
   // Wait up to 5s for Supabase CDN script
   let retries = 0;
   while (!window.supabase && retries < 50) {
@@ -71,9 +91,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   } else {
     console.error('[init] Supabase script NOT found after 5s.');
-    alert('Critical: Supabase library failed to load. Check your internet or ad-blocker.');
+    // Show inline error — don't alert() which blocks the thread
+    const overlay = document.getElementById('auth-overlay');
+    if (overlay) {
+      overlay.classList.remove('hidden');
+      const card = overlay.querySelector('.auth-card');
+      if (card) card.insertAdjacentHTML('beforeend', '<p style="color:#e74c3c;margin-top:16px;font-size:13px;">⚠️ Supabase library failed to load. Check your internet or disable ad-blocker.</p>');
+    }
   }
 
+  // Always bind UI — even if supabase failed, the DOM listeners must attach
   initAuth();
   bindSidebar();
   bindSearch();
@@ -81,15 +108,52 @@ document.addEventListener('DOMContentLoaded', async () => {
   bindViewToggle();
   bindLoadMore();
   bindBulkActions();
+  bindCollections();
   registerServiceWorker();
 
   loadCollections();
-  // Initial load happens after auth check
+  // Initial feed load happens after auth check inside initAuth → updateUser
 });
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 async function initAuth() {
-  if (!supabase) return;
+  // Always bind the auth form — even if supabase failed to load
+  const authForm = document.getElementById('auth-form');
+  if (authForm) authForm.addEventListener('submit', handleAuthSubmit);
+
+  const toggleLink = document.getElementById('auth-toggle-link');
+  if (toggleLink) toggleLink.addEventListener('click', e => {
+    e.preventDefault();
+    const title = document.getElementById('auth-title');
+    const submit = document.getElementById('auth-submit');
+    if (submit.textContent === 'Sign In') {
+      title.textContent = 'Create account';
+      submit.textContent = 'Sign Up';
+      toggleLink.textContent = 'Sign In';
+    } else {
+      title.textContent = 'Welcome back';
+      submit.textContent = 'Sign In';
+      toggleLink.textContent = 'Sign Up';
+    }
+  });
+
+  const googleBtn = document.getElementById('google-auth-btn');
+  if (googleBtn) googleBtn.addEventListener('click', () => {
+    if (!supabase) { toast('Supabase not loaded — check config', 'error'); return; }
+    console.log('[auth] Google clicked');
+    supabase.auth.signInWithOAuth({ provider: 'google' });
+  });
+
+  const profileBtn = document.getElementById('user-profile');
+  if (profileBtn) profileBtn.addEventListener('click', async () => {
+    if (confirm('Sign out?') && supabase) await supabase.auth.signOut();
+  });
+
+  if (!supabase) {
+    // No supabase — show the auth overlay so user sees the form (with the CDN error above it)
+    updateUser(null);
+    return;
+  }
 
   const { data: { session } } = await supabase.auth.getSession();
   updateUser(session?.user);
@@ -97,44 +161,28 @@ async function initAuth() {
   supabase.auth.onAuthStateChange((_event, session) => {
     updateUser(session?.user);
   });
-
-  $('auth-form').addEventListener('submit', handleAuthSubmit);
-  $('auth-toggle-link').addEventListener('click', e => {
-    e.preventDefault();
-    console.log('[auth] Toggle clicked');
-    const title = $('auth-title');
-    const submit = $('auth-submit');
-    if (submit.textContent === 'Sign In') {
-      title.textContent = 'Create account';
-      submit.textContent = 'Sign Up';
-      $('auth-toggle-link').textContent = 'Sign In';
-    } else {
-      title.textContent = 'Welcome back';
-      submit.textContent = 'Sign In';
-      $('auth-toggle-link').textContent = 'Sign Up';
-    }
-  });
-
-  $('google-auth-btn').addEventListener('click', () => {
-    console.log('[auth] Google clicked');
-    supabase.auth.signInWithOAuth({ provider: 'google' });
-  });
-
-  $('user-profile').addEventListener('click', async () => {
-    if (confirm('Sign out?')) await supabase.auth.signOut();
-  });
 }
 
 function updateUser(newUser) {
   user = newUser;
   
-  // Handle public sharing links: /entries/:id
+  // Handle public sharing links: /entries/:id — works for both authenticated and anonymous users
   const path = window.location.pathname;
   const entryIdMatch = path.match(/\/entries\/([a-f0-9-]{36})/);
-  
+
   if (entryIdMatch && !user) {
     $('auth-overlay').classList.add('hidden');
     loadPublicEntry(entryIdMatch[1]);
+    return;
+  }
+
+  if (entryIdMatch && user) {
+    // Authenticated user opened a share link — show that entry in context
+    $('auth-overlay').classList.add('hidden');
+    $('app').classList.remove('blurred');
+    $('user-avatar').textContent = user.email[0].toUpperCase();
+    loadPublicEntry(entryIdMatch[1]);
+    loadCollections();
     return;
   }
 
@@ -165,11 +213,20 @@ async function loadPublicEntry(id) {
 }
 
 function bindBulkActions() {
-  $('bulk-select-btn').onclick = toggleSelectionMode;
-  $('cancel-selection').onclick = toggleSelectionMode;
-  $('bulk-delete-btn').onclick = handleBulkDelete;
-  $('bulk-pin-btn').onclick = handleBulkPin;
-  $('bulk-move-btn').onclick = handleBulkMove;
+  const bulkBtn = $('bulk-select-btn');
+  if (bulkBtn) bulkBtn.onclick = toggleSelectionMode;
+  
+  const cancelBtn = $('cancel-selection');
+  if (cancelBtn) cancelBtn.onclick = toggleSelectionMode;
+  
+  const deleteBtn = $('bulk-delete-btn');
+  if (deleteBtn) deleteBtn.onclick = handleBulkDelete;
+  
+  const pinBtn = $('bulk-pin-btn');
+  if (pinBtn) pinBtn.onclick = handleBulkPin;
+  
+  const moveBtn = $('bulk-move-btn');
+  if (moveBtn) moveBtn.onclick = handleBulkMove;
 }
 
 function toggleSelectionMode() {
@@ -199,8 +256,9 @@ async function handleBulkDelete() {
 async function handleBulkPin() {
   if (selectedEntries.size === 0) return;
   try {
-    // Bulk pin is not directly supported as a toggle, we'll set all to pinned
-    await apiPost('/entries/bulk', { action: 'update', ids: Array.from(selectedEntries), data: { is_pinned: true } });
+    // FIX: Use action:'pin' which is now handled by the backend entries.js bulk route.
+    // Previously this sent action:'update' which the backend didn't recognise → silent fail.
+    await apiPost('/entries/bulk', { action: 'pin', ids: Array.from(selectedEntries), data: { is_pinned: true } });
     toast('Entries pinned', 'success');
     toggleSelectionMode();
     loadFeed(true);
@@ -209,9 +267,64 @@ async function handleBulkPin() {
 
 async function handleBulkMove() {
   if (selectedEntries.size === 0) return;
-  const colId = prompt('Enter collection name or choose from list:'); // Placeholder for a better UI
-  if (!colId) return;
-  // TODO: Implement a better collection picker
+  // FIX: Replace prompt() with proper collection picker modal.
+  showCollectionPicker(async (colId) => {
+    try {
+      await apiPost('/entries/bulk', { action: 'move', ids: Array.from(selectedEntries), data: { collection_id: colId } });
+      toast('Entries moved', 'success');
+      toggleSelectionMode();
+      loadFeed(true);
+    } catch (err) { toast(err.message, 'error'); }
+  });
+}
+
+// FIX: Proper collection picker modal — replaces the old prompt() placeholder.
+function showCollectionPicker(onSelect) {
+  // Remove any existing modal
+  document.getElementById('collection-picker-modal')?.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'collection-picker-modal';
+  modal.className = 'capture-overlay';
+  modal.style.cssText = 'display:flex; z-index:1000;';
+
+  const hasCollections = collections.length > 0;
+
+  modal.innerHTML = `
+    <div class="capture-panel" style="max-width:400px; width:100%;">
+      <div class="capture-header">
+        <h3>Move to Collection</h3>
+        <button class="close-btn" id="picker-close">&times;</button>
+      </div>
+      <div class="tab-content active" style="padding:16px;">
+        ${hasCollections ? `
+          <p style="font-size:13px; color:var(--muted); margin-bottom:12px;">Choose a collection:</p>
+          <div id="picker-list" style="display:flex; flex-direction:column; gap:8px; max-height:300px; overflow-y:auto;">
+            ${collections.map(col => `
+              <button class="nav-item picker-col-btn" data-col-id="${escHtml(col.id)}" style="justify-content:flex-start; padding:12px; border-radius:8px; border:1px solid var(--border); background:var(--surface); width:100%; text-align:left;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                <span>${escHtml(col.name)}</span>
+              </button>
+            `).join('')}
+          </div>
+        ` : `<p style="color:var(--muted); text-align:center; padding:24px 0;">No collections yet. Create one from the sidebar first.</p>`}
+      </div>
+      ${hasCollections ? `<div class="capture-footer" style="padding:12px 16px;"><span style="font-size:12px; color:var(--muted);">${selectedEntries.size} entr${selectedEntries.size === 1 ? 'y' : 'ies'} selected</span></div>` : ''}
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  modal.querySelector('#picker-close').onclick = () => modal.remove();
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+
+  modal.querySelectorAll('.picker-col-btn').forEach(btn => {
+    btn.onclick = () => {
+      const colId = btn.dataset.colId;
+      modal.remove();
+      onSelect(colId);
+    };
+  });
 }
 
 async function loadCollections() {
@@ -238,14 +351,16 @@ function renderCollectionsNav() {
   });
 }
 
-$('new-collection-btn').onclick = async () => {
-  const name = prompt('Collection name:');
-  if (!name) return;
-  try {
-    await apiPost('/collections', { name });
-    loadCollections();
-  } catch (err) { toast(err.message, 'error'); }
-};
+function bindCollections() {
+  $('new-collection-btn').onclick = async () => {
+    const name = prompt('Collection name:');
+    if (!name) return;
+    try {
+      await apiPost('/collections', { name });
+      loadCollections();
+    } catch (err) { toast(err.message, 'error'); }
+  };
+}
 
 async function handleAuthSubmit(e) {
   e.preventDefault();
@@ -285,20 +400,20 @@ function bindSidebar() {
       const type = item.dataset.type;
 
       if (filter === 'active' || filter === 'starred') {
-        currentFilter = { status: filter, type: null, label: null };
+        currentFilter = { status: filter, type: null, label: null, collection: null };
         $('feed-title').textContent = filter === 'starred' ? 'Starred' : 'All Entries';
       } else if (item.id === 'trash-nav-item') {
-        currentFilter = { status: 'trashed', type: null, label: null };
+        currentFilter = { status: 'trashed', type: null, label: null, collection: null };
         $('feed-title').textContent = 'Trash';
       } else if (type) {
-        currentFilter = { status: 'active', type, label: null };
+        currentFilter = { status: 'active', type, label: null, collection: null };
         $('feed-title').textContent = type.charAt(0).toUpperCase() + type.slice(1) + 's';
       }
 
       loadFeed(true);
       $('feed-view').classList.remove('hidden');
       $('family-admin-view').classList.add('hidden');
-      if (window.innerWidth <= 768) $('.sidebar').classList.remove('open');
+      if (window.innerWidth <= 768) $('sidebar').classList.remove('open');
     });
   });
 
@@ -649,7 +764,7 @@ async function handleShare(entry) {
   try {
     // Set to public first
     await apiPatch(`/entries/${entry.id}`, { sharing_scope: 'public' });
-    const shareUrl = `${window.location.origin}/entries/${entry.id}`; // This would need a public viewer page
+    const shareUrl = `${window.location.origin}/entries/${entry.id}`; // Handled by updateUser() SPA routing → loadPublicEntry()
     await navigator.clipboard.writeText(shareUrl);
     toast('Public link copied to clipboard!', 'success');
   } catch (err) { toast(err.message, 'error'); }

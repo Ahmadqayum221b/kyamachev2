@@ -1,0 +1,14 @@
+{
+  "name": "kymacache-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install:all": "npm install && cd worker && npm install",
+    "dev:worker": "cd worker && npm run dev",
+    "dev:pwa": "npx serve pwa -l 3000",
+    "dev": "npx concurrently \"npm run dev:worker\" \"npm run dev:pwa\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

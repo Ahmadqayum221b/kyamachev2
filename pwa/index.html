@@ -17,7 +17,7 @@
 
 <div id="app" class="sidebar-layout">
   <!-- ── Sidebar ── -->
-  <aside class="sidebar">
+  <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <div class="logo">
         <span class="logo-mark">K</span>
@@ -89,7 +89,7 @@
 
   <!-- ── Main Content ── -->
   <main class="main-content">
-    <header class="main-header">
+    <header class="main-header" id="main-header">
       <div class="search-container">
         <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         <input type="search" id="search-input" placeholder="Search entries, labels, people…" autocomplete="off">
@@ -267,6 +267,22 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<!-- ── App Config ──────────────────────────────────────────────────────────
+     REQUIRED: Fill in your credentials before deploying.
+     On Vercel/Netlify you can inject this via a build transform or edge function.
+     For local dev, edit directly (keep out of git — add index.html to .gitignore
+     or use a separate config-local.html that overrides this block).
+     The supabaseKey here should be your ANON key only — never the service_role key.
+─────────────────────────────────────────────────────────────────────────── -->
+<script>
+window.KYMACACHE_CONFIG = {
+  apiBase:     "https://YOUR_WORKER.workers.dev",   // Cloudflare Worker URL
+  supabaseUrl: "https://YOUR_PROJECT.supabase.co",  // Supabase project URL
+  supabaseKey: "YOUR_ANON_KEY"                       // Supabase anon/public key
+};
+</script>
+
 <script src="/app-v2.js" type="module"></script>
 </body>
 </html>

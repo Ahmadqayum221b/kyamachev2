@@ -126,6 +126,14 @@ export async function handleEntries(request, env, ctx, url, user) {
       return json({ success: true, count: ids.length }, 200, env);
     }
 
+    // FIX: Add 'pin' bulk action — previously PWA sent action:'update' which was
+    // unrecognised here, causing bulk pin to silently fail.
+    if (action === 'pin') {
+      const is_pinned = data?.is_pinned !== false; // default to true (pin), pass false to unpin
+      await db.patch('entries', filter, { is_pinned }, userToken);
+      return json({ success: true, count: ids.length }, 200, env);
+    }
+
     return json({ error: 'Unknown bulk action' }, 400, env);
   }
 
