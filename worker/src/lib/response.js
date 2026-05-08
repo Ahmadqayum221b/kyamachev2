@@ -18,7 +18,9 @@ export function getCorsHeaders(request, env) {
 
   const origin = request.headers.get('Origin') ?? '';
   const finalOrigin =
-    origin === allowedOrigin || origin.startsWith('http://localhost')
+    origin === allowedOrigin || 
+    origin.startsWith('http://localhost') || 
+    origin.startsWith('http://127.0.0.1')
       ? origin
       : allowedOrigin;
 
