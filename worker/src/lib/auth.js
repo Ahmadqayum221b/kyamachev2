@@ -16,25 +16,55 @@ export async function verifyJwt(token, secret) {
   if (parts.length !== 3) return null;
 
   const [headerB64, payloadB64, signatureB64] = parts;
+  console.log('[auth] Header:', headerB64);
 
   try {
     const encoder = new TextEncoder();
     const data = encoder.encode(`${headerB64}.${payloadB64}`);
+    
+    // DEBUG: check if secret starts with expected chars (safely)
+    console.log('[auth] Secret length:', secret.length, 'Prefix:', secret.substring(0, 5));
+    // FIX: Supabase secrets are often 64-byte keys provided as 88-character Base64 strings.
+    // If the secret looks like Base64, we MUST decode it to raw bytes for HMAC-SHA256.
+    let keyData;
+    try {
+      if (secret.length === 88 && (secret.endsWith('=') || secret.includes('/') || secret.includes('+'))) {
+        keyData = base64UrlToUint8Array(secret.replace(/\+/g, '-').replace(/\//g, '_'));
+      } else {
+        keyData = encoder.encode(secret);
+      }
+    } catch (e) {
+      keyData = encoder.encode(secret);
+    }
+    
     const key = await crypto.subtle.importKey(
       'raw',
-      encoder.encode(secret),
+      keyData,
       { name: 'HMAC', hash: 'SHA-256' },
       false,
       ['verify']
     );
 
-    const signature = base64UrlToUint8Array(signatureB64);
-    const isValid = await crypto.subtle.verify('HMAC', key, signature, data);
-    if (!isValid) return null;
-
     const payload = JSON.parse(
       new TextDecoder().decode(base64UrlToUint8Array(payloadB64))
     );
+    console.log('[auth] Decoded payload:', JSON.stringify(payload));
+
+    const signature = base64UrlToUint8Array(signatureB64);
+    console.log('[auth] Signature byte length:', signature.length);
+    let isValid = await crypto.subtle.verify('HMAC', key, signature, data);
+    
+    // FALLBACK: If first method fails, try treating secret as a plain string
+    if (!isValid) {
+      console.log('[auth] Primary verification failed, trying fallback...');
+      const fallbackKey = await crypto.subtle.importKey(
+        'raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
+      );
+      isValid = await crypto.subtle.verify('HMAC', fallbackKey, signature, data);
+    }
+
+    console.log('[auth] Signature valid:', isValid);
+    if (!isValid) return null;
 
     const now = Math.floor(Date.now() / 1000);
     if (payload.exp && payload.exp < now) {

@@ -18,8 +18,8 @@ MAX_FILE_SIZE  = "10485760"   # 10 MB
 
 # FIX: WORKER_SELF_URL and FRONTEND_URL moved here (non-secret) — OK.
 # These are not sensitive values, just URLs.
-WORKER_SELF_URL = "https://kymacache-worker.yourname.workers.dev"
-FRONTEND_URL    = "https://kymacache.pages.dev"
+WORKER_SELF_URL = "https://kymacache-worker.asghar78ali91.workers.dev"
+FRONTEND_URL    = "https://kyamachev2.vercel.app"
 
 # ─── Secrets (set via CLI, never commit values) ────────────────────────────────
 # Run these once after deploying:
