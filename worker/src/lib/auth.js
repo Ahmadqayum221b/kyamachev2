@@ -30,9 +30,29 @@ export async function verifyJwt(token, secret, env) {
 
     if (header.alg === 'ES256') {
       // Fetch public keys from Supabase JWKS endpoint
-      const jwksUrl = `${env.SUPABASE_URL}/auth/v1/jwks.json`;
+      const jwksUrl = `${env.SUPABASE_URL.replace(/\/$/, '')}/auth/v1/jwks.json`;
+      console.log('[auth] Fetching JWKS from:', jwksUrl);
+      // Note: JWKS endpoint is public — no apikey header needed (and it can cause errors)
       const res = await fetch(jwksUrl);
-      const jwks = await res.json();
+      if (!res.ok) {
+        console.error('[auth] JWKS fetch failed:', res.status, res.statusText);
+        return null;
+      }
+      const text = await res.text();
+      console.log('[auth] Raw JWKS response:', text.substring(0, 200));
+      let jwks;
+      try {
+        jwks = JSON.parse(text);
+      } catch (parseErr) {
+        console.error('[auth] Failed to parse JWKS JSON:', parseErr.message, 'Raw:', text.substring(0, 200));
+        return null;
+      }
+      
+      if (!jwks?.keys || !Array.isArray(jwks.keys)) {
+        console.error('[auth] Invalid JWKS response — no keys array:', JSON.stringify(jwks).substring(0, 200));
+        return null;
+      }
+
       const key = jwks.keys.find(k => k.kid === header.kid);
       
       if (!key) {
@@ -50,23 +70,22 @@ export async function verifyJwt(token, secret, env) {
     } else {
       // Fallback to HS256
       const encoder = new TextEncoder();
-      let keyData;
-      if (secret?.length === 88 && (secret.endsWith('=') || secret.includes('/') || secret.includes('+'))) {
-        keyData = base64UrlToUint8Array(secret.replace(/\+/g, '-').replace(/\//g, '_'));
-      } else {
-        keyData = encoder.encode(secret || '');
-      }
-
-      const key = await crypto.subtle.importKey(
-        'raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
-      );
-      isValid = await crypto.subtle.verify('HMAC', key, signature, data);
       
+      // Try raw UTF-8 encoding first (most common for Supabase JWT secrets)
+      const rawKey = await crypto.subtle.importKey(
+        'raw', encoder.encode(secret || ''), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
+      );
+      isValid = await crypto.subtle.verify('HMAC', rawKey, signature, data);
+
+      // If that fails, try treating the secret as base64 (some Supabase projects use base64 secrets)
       if (!isValid && secret) {
-        const fallbackKey = await crypto.subtle.importKey(
-          'raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
-        );
-        isValid = await crypto.subtle.verify('HMAC', fallbackKey, signature, data);
+        try {
+          const b64Key = base64UrlToUint8Array(secret.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''));
+          const importedB64Key = await crypto.subtle.importKey(
+            'raw', b64Key, { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
+          );
+          isValid = await crypto.subtle.verify('HMAC', importedB64Key, signature, data);
+        } catch (_) { /* not valid base64 — ignore */ }
       }
     }
 

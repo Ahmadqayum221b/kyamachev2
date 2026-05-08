@@ -111,8 +111,8 @@ window.KYMACACHE_CONFIG = {
   bindCollections();
   registerServiceWorker();
 
-  loadCollections();
-  // Initial feed load happens after auth check inside initAuth → updateUser
+  // Initial feed load and collections load happen after auth check inside initAuth → updateUser
+  // Do NOT call loadCollections() or loadFeed() here — they require a valid session token.
 });
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -836,8 +836,16 @@ function bindViewToggle() {
 function bindLoadMore() { $('load-more').onclick = () => loadFeed(); }
 
 async function apiFetch(path, options = {}) {
-  const session = await supabase?.auth.getSession();
-  const token = session?.data?.session?.access_token;
+  // Get current session token
+  let sessionResult = await supabase?.auth.getSession();
+  let token = sessionResult?.data?.session?.access_token;
+
+  // If no token but supabase is available, attempt a session refresh
+  if (!token && supabase) {
+    const refreshed = await supabase.auth.refreshSession();
+    token = refreshed?.data?.session?.access_token ?? null;
+  }
+
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
@@ -845,18 +853,44 @@ async function apiFetch(path, options = {}) {
       ...(token ? { 'Authorization': `Bearer ${token}` } : {})
     }
   });
+
+  // On 401, try one token refresh and retry before failing
+  if (res.status === 401 && supabase) {
+    console.warn('[apiFetch] 401 on', path, '— refreshing session and retrying');
+    const refreshed = await supabase.auth.refreshSession();
+    const newToken = refreshed?.data?.session?.access_token;
+    if (!newToken) {
+      // Session is truly gone — sign user out and show login
+      updateUser(null);
+      throw new Error('Session expired — please sign in again');
+    }
+    const retry = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers: {
+        ...(options.headers || {}),
+        'Authorization': `Bearer ${newToken}`
+      }
+    });
+    if (!retry.ok) throw new Error('Fetch failed');
+    return retry.json();
+  }
+
   if (!res.ok) throw new Error('Fetch failed');
   return res.json();
 }
 
 async function apiPost(path, data) {
-  const session = await supabase?.auth.getSession();
-  const token = session?.data?.session?.access_token;
+  let sessionResult = await supabase?.auth.getSession();
+  let token = sessionResult?.data?.session?.access_token;
+  if (!token && supabase) {
+    const refreshed = await supabase.auth.refreshSession();
+    token = refreshed?.data?.session?.access_token ?? null;
+  }
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': token ? `Bearer ${token}` : ''
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
     },
     body: JSON.stringify(data)
   });
