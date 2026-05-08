@@ -29,7 +29,7 @@
 const _cfg        = window.KYMACACHE_CONFIG ?? {};
 const API_BASE    = _cfg.apiBase    ?? (
   (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-    ? 'http://localhost:8788'
+    ? 'http://localhost:8787'
     : null   // detected at runtime — show config error if null
 );
 const SUPABASE_URL = _cfg.supabaseUrl ?? null;
