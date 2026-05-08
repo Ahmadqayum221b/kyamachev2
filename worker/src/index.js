@@ -82,7 +82,13 @@ export default {
       if (path === '/family' || path.startsWith('/family/'))
         return await handleFamily(request, env, ctx, url, user);
       if (path === '/health')
-        return json({ status: 'ok', ts: Date.now(), supabase_url_set: !!env.SUPABASE_URL }, 200, env);
+        return json({ 
+          status: 'ok', 
+          ts: Date.now(), 
+          supabase_url_set: !!env.SUPABASE_URL,
+          supabase_jwt_secret_set: !!env.SUPABASE_JWT_SECRET,
+          environment: env.ENVIRONMENT || 'unknown'
+        }, 200, env);
 
       return notFound(request, env);
     } catch (err) {

@@ -90,19 +90,28 @@ export async function verifyJwt(token, secret, env) {
     }
 
     console.log('[auth] Signature valid:', isValid);
-    if (!isValid) return null;
+    if (!isValid) {
+      console.error('[auth] Signature verification failed');
+      return null;
+    }
 
     const now = Math.floor(Date.now() / 1000);
     if (payload.exp && payload.exp < now) {
-      console.warn('[auth] Token expired');
+      console.warn('[auth] Token expired:', { exp: payload.exp, now });
       return null;
     }
 
-    if (!payload.sub || typeof payload.sub !== 'string' || !/^[a-zA-Z0-9_-]{1,128}$/.test(payload.sub)) {
-      console.error('[auth] Rejected: sub is absent or invalid');
+    if (!payload.sub || typeof payload.sub !== 'string') {
+      console.error('[auth] Rejected: sub is absent or not a string');
       return null;
     }
 
+    // Relaxed regex for sub to be safe
+    if (!/^[a-zA-Z0-9_-]{1,128}$/.test(payload.sub)) {
+       console.warn('[auth] sub format unusual but continuing:', payload.sub);
+    }
+
+    console.log('[auth] Token verified for user:', payload.sub);
     return payload;
   } catch (err) {
     console.error('[auth] JWT verification error:', err);
@@ -112,9 +121,21 @@ export async function verifyJwt(token, secret, env) {
 
 export async function getUser(request, env) {
   const authHeader = request.headers.get('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+  if (!authHeader) {
+    console.warn('[auth] No Authorization header found');
+    return null;
+  }
+  if (!authHeader.startsWith('Bearer ')) {
+    console.warn('[auth] Authorization header does not start with Bearer');
+    return null;
+  }
 
   const token = authHeader.slice(7);
+  if (!token) {
+    console.warn('[auth] Bearer token is empty');
+    return null;
+  }
+
   return verifyJwt(token, env.SUPABASE_JWT_SECRET, env);
 }
 

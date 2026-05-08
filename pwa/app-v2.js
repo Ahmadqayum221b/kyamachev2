@@ -156,9 +156,11 @@ async function initAuth() {
   }
 
   const { data: { session } } = await supabase.auth.getSession();
+  console.log('[auth] Initial session:', session ? 'Found' : 'Not found');
   updateUser(session?.user);
 
-  supabase.auth.onAuthStateChange((_event, session) => {
+  supabase.auth.onAuthStateChange((event, session) => {
+    console.log('[auth] State change:', event, session ? 'Session active' : 'No session');
     updateUser(session?.user);
   });
 }
@@ -845,6 +847,8 @@ async function apiFetch(path, options = {}) {
     const refreshed = await supabase.auth.refreshSession();
     token = refreshed?.data?.session?.access_token ?? null;
   }
+
+  console.log(`[apiFetch] ${path}`, { hasToken: !!token });
 
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
