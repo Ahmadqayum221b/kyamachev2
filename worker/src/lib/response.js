@@ -30,12 +30,31 @@ export function getCorsHeaders(request, env) {
   };
 }
 
-export function json(data, status = 200, request = null, env = {}) {
+/**
+ * Shared response helper.
+ *
+ * Handles both json(data, status, request, env) and json(data, status, env).
+ * This flexibility prevents CORS errors when route handlers forget the request argument.
+ */
+export function json(data, status = 200, arg3 = null, arg4 = {}) {
+  let request = null;
+  let env = {};
+
+  // Detect if arg3 is a Request object or an env object
+  if (arg3 && typeof arg3.headers !== 'undefined' && typeof arg3.headers.get === 'function') {
+    request = arg3;
+    env = arg4;
+  } else {
+    // If arg3 is not a request, assume it's the env object (common in this codebase)
+    env = arg3 ?? {};
+    request = { headers: { get: () => null } };
+  }
+
   return new Response(JSON.stringify(data), {
     status,
     headers: {
       'Content-Type': 'application/json',
-      ...getCorsHeaders(request ?? { headers: { get: () => null } }, env),
+      ...getCorsHeaders(request, env),
     },
   });
 }
